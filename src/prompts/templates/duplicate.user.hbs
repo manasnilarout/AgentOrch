@@ -1,0 +1,23 @@
+## Current RFQ Details
+
+**Sender:** {{senderEmail}}
+
+### Parsed Data
+
+```json
+{{{json parsedData}}}
+```
+
+{{#if recentRfqs.length}}
+### Recent RFQs from System
+
+{{#each recentRfqs}}
+- **ID:** {{this.id}} | **Customer:** {{this.customerName}} | **Project:** {{this.projectName}} | **Created:** {{this.createdAt}}
+{{/each}}
+{{else}}
+No recent RFQs found in the lookback period.
+{{/if}}
+
+---
+
+Please analyze this RFQ and determine if it is a duplicate or very similar to any existing RFQs.

@@ -1,0 +1,23 @@
+## RFQ Summary
+
+{{#if customerName}}
+**Customer:** {{customerName}}
+{{/if}}
+
+{{#if timeline}}
+**Timeline:** {{timeline}}
+{{/if}}
+
+**Product Count:** {{productCount}}
+**Has Drawings:** {{#if hasDrawings}}Yes{{else}}No{{/if}}
+**Has Special Requirements:** {{#if hasSpecialRequirements}}Yes{{else}}No{{/if}}
+
+### Parsed Data
+
+```json
+{{{json parsedData}}}
+```
+
+---
+
+Please assess the complexity and priority of this RFQ based on the provided information.

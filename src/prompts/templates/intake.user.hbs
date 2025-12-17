@@ -1,0 +1,25 @@
+## RFQ Email to Process
+
+**From:** {{senderEmail}}
+**Received:** {{formatDate receivedAt}}
+
+### Email Body
+
+{{emailBody}}
+
+### Attachments
+
+{{#if attachments.length}}
+**Available Files ({{attachments.length}}):**
+{{#each attachments}}
+- {{this.originalName}} ({{this.mimeType}}, {{this.size}} bytes)
+{{/each}}
+
+Use the `read_attachment` tool to read the contents of these files.
+{{else}}
+No attachments found.
+{{/if}}
+
+---
+
+Please analyze this RFQ and extract all relevant information. Use the available tools to read attachment contents as needed.

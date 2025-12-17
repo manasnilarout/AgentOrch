@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum ExecutionStatus {
+  PENDING
+  PROCESSING
+  AWAITING_HUMAN
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AgentTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  AWAITING_HUMAN
+  SKIPPED
+}
+
+enum SnapshotType {
+  INPUT
+  OUTPUT
+  HUMAN_UPDATE
+}
+
+// ============================================
+// EMAIL & ATTACHMENT MODELS
+// ============================================
+
+/// Uploaded email record - stores email body and metadata
+model Email {
+  id            String           @id @default(uuid())
+  subject       String?          @db.VarChar(500)
+  body          String           @db.Text
+  senderEmail   String           @map("sender_email")
+  receivedAt    DateTime         @map("received_at")
+  metadata      Json             @default("{}")
+
+  // Timestamps
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  attachments   EmailAttachment[]
+  executions    Execution[]
+
+  @@index([senderEmail])
+  @@index([createdAt])
+  @@index([receivedAt])
+  @@map("emails")
+}
+
+/// Email attachment metadata - actual files stored in MinIO
+model EmailAttachment {
+  id            String    @id @default(uuid())
+  emailId       String    @map("email_id")
+
+  // File metadata
+  filename      String    @db.VarChar(500)
+  originalName  String    @map("original_name") @db.VarChar(500)
+  mimeType      String    @map("mime_type") @db.VarChar(255)
+  size          Int       // Size in bytes
+
+  // MinIO storage reference
+  bucketName    String    @map("bucket_name") @db.VarChar(255)
+  objectKey     String    @map("object_key") @db.VarChar(1000)
+
+  // Timestamps
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  email         Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([emailId])
+  @@index([mimeType])
+  @@map("email_attachments")
+}
+
+// ============================================
+// EXECUTION MODELS
+// ============================================
+
+/// Main execution record - tracks the entire RFQ processing lifecycle
+model Execution {
+  id            String           @id @default(uuid())
+  emailId       String           @map("email_id")
+  externalRef   String?          @map("external_ref") // e.g., external system reference
+  status        ExecutionStatus  @default(PENDING)
+  currentAgent  String?          @map("current_agent")
+  metadata      Json             @default("{}")
+
+  // Timestamps
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  completedAt   DateTime?        @map("completed_at")
+
+  // Relations
+  email         Email            @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  agentTasks    AgentTask[]
+  events        Event[]
+  snapshots     RfqSnapshot[]
+
+  @@index([emailId])
+  @@index([status])
+  @@index([externalRef])
+  @@index([createdAt])
+  @@map("executions")
+}
+
+/// Individual agent task execution within an overall execution
+model AgentTask {
+  id               String          @id @default(uuid())
+  executionId      String          @map("execution_id")
+  agentName        String          @map("agent_name")
+  attemptNumber    Int             @default(1) @map("attempt_number")
+  status           AgentTaskStatus @default(PENDING)
+
+  // Snapshot references
+  inputSnapshotId  String?         @map("input_snapshot_id")
+  outputSnapshotId String?         @map("output_snapshot_id")
+
+  // Execution details
+  errorMessage     String?         @map("error_message") @db.Text
+  durationMs       Int?            @map("duration_ms")
+  tokenUsage       Json?           @map("token_usage")
+  costUsd          Decimal?        @map("cost_usd") @db.Decimal(10, 6)
+
+  // Timestamps
+  startedAt        DateTime?       @map("started_at")
+  completedAt      DateTime?       @map("completed_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  execution        Execution       @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  events           Event[]
+  inputSnapshot    RfqSnapshot?    @relation("InputSnapshot", fields: [inputSnapshotId], references: [id])
+  outputSnapshot   RfqSnapshot?    @relation("OutputSnapshot", fields: [outputSnapshotId], references: [id])
+
+  @@index([executionId])
+  @@index([agentName])
+  @@index([status])
+  @@index([createdAt])
+  @@map("agent_tasks")
+}
+
+/// Immutable event log for audit trail (Event Sourcing)
+model Event {
+  id           String     @id @default(uuid())
+  executionId  String     @map("execution_id")
+  agentTaskId  String?    @map("agent_task_id")
+
+  eventType    String     @map("event_type")
+  eventData    Json       @map("event_data")
+
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  execution    Execution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  agentTask    AgentTask? @relation(fields: [agentTaskId], references: [id], onDelete: SetNull)
+
+  @@index([executionId])
+  @@index([agentTaskId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("events")
+}
+
+/// RFQ state snapshots for resume/replay functionality
+model RfqSnapshot {
+  id           String       @id @default(uuid())
+  executionId  String       @map("execution_id")
+  agentName    String       @map("agent_name")
+  snapshotType SnapshotType @map("snapshot_type")
+  data         Json
+
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  execution    Execution    @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  // Reverse relations for AgentTask
+  inputForTasks  AgentTask[] @relation("InputSnapshot")
+  outputForTasks AgentTask[] @relation("OutputSnapshot")
+
+  @@index([executionId])
+  @@index([agentName])
+  @@index([snapshotType])
+  @@index([createdAt])
+  @@map("rfq_snapshots")
+}

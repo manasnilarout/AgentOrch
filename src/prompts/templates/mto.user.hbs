@@ -1,0 +1,24 @@
+## MTO Generation Request
+
+**Priority:** {{priority}}
+**Complexity:** {{complexity}}
+
+### Requested Products
+
+{{#each requestedProducts}}
+#### Product {{@index}}
+- **Name:** {{this.name}}
+{{#if this.quantity}}- **Quantity:** {{this.quantity}} {{this.unit}}{{/if}}
+{{#if this.specifications}}- **Specifications:** {{{json this.specifications}}}{{/if}}
+{{#if this.drawings}}- **Drawings:** {{join this.drawings ", "}}{{/if}}
+{{/each}}
+
+### Full Parsed Data
+
+```json
+{{{json parsedData}}}
+```
+
+---
+
+Please generate a detailed Material Take-Off for this RFQ. Use the product lookup and pricing tools as needed.

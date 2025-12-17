@@ -1,0 +1,24 @@
+## Quote Generation Request
+
+{{#if customerName}}
+**Customer:** {{customerName}}
+{{/if}}
+
+**Priority:** {{priority}}
+**Complexity:** {{complexity}}
+
+### Material Take-Off
+
+```json
+{{{json mtoData}}}
+```
+
+### Original RFQ Data
+
+```json
+{{{json parsedData}}}
+```
+
+---
+
+Please generate a formal quote based on the Material Take-Off. Use pricing tools to get current prices and apply any applicable discounts.
